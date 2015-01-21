@@ -13,8 +13,8 @@
     "logoFile": "",
     "screenshots": [],
     "parent": "D3Core",
-    "requiredMods": [ "Forge", "D3Core" ],
-    "dependencies": [ "D3Core" ],
+    "requiredMods": [ "Forge" ],
+    "dependencies": [],
     "dependants": [ ],
     "useDependencyInformation": true
   }]

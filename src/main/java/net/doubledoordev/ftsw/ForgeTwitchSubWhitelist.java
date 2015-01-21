@@ -31,29 +31,28 @@
 package net.doubledoordev.ftsw;
 
 import com.google.common.base.Strings;
-import cpw.mods.fml.client.config.IConfigElement;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
 import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.network.FMLNetworkEvent;
-import net.doubledoordev.d3core.util.ID3Mod;
+import cpw.mods.fml.common.network.NetworkCheckHandler;
+import cpw.mods.fml.relauncher.Side;
 import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.server.management.ServerConfigurationManager;
-import net.minecraftforge.common.config.ConfigElement;
 import net.minecraftforge.common.config.Configuration;
 import org.apache.commons.io.IOUtils;
 
 import java.io.IOException;
 import java.net.URL;
-import java.util.List;
+import java.util.Map;
 
 /**
  * @author Dries007
  */
 @Mod(modid = ForgeTwitchSubWhitelist.MODID)
-public class ForgeTwitchSubWhitelist implements ID3Mod
+public class ForgeTwitchSubWhitelist
 {
     public static final String MODID = "ForgeTwitchSubWhitelist";
     public static final String CHECK_TWITCH_URL = "http://www.twitch.tv/api/channels/%s/subscriptions/%s?oauth_token=%s";
@@ -74,6 +73,12 @@ public class ForgeTwitchSubWhitelist implements ID3Mod
         configuration = new Configuration(event.getSuggestedConfigurationFile());
 
         syncConfig();
+    }
+
+    @NetworkCheckHandler
+    public boolean networkCheckHandler(Map<String, String> map, Side side)
+    {
+        return true;
     }
 
     @Mod.EventHandler
@@ -123,21 +128,11 @@ public class ForgeTwitchSubWhitelist implements ID3Mod
         }).start();
     }
 
-    @Override
     public void syncConfig()
     {
-        configuration.setCategoryLanguageKey(MODID, "d3.forgeTwitchSubWhitelist.config.forgeTwitchSubWhitelist");
-
-        // public String getString(String name, String category, String defaultValue, String comment)
         twitchToken = configuration.getString("twitchToken", MODID, "", "Get it from http://www.doubledoordev.net/?p=twitch");
         channel = configuration.getString("channel", MODID, "", "Cap sensitive!");
 
         if (configuration.hasChanged()) configuration.save();
-    }
-
-    @Override
-    public void addConfigElements(List<IConfigElement> configElements)
-    {
-        configElements.add(new ConfigElement(configuration.getCategory(MODID.toLowerCase())));
     }
 }
