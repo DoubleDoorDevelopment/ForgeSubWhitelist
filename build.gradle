@@ -28,7 +28,7 @@ apply plugin: "maven"
 apply plugin: "idea-utils"
 
 group = "net.doubledoordev.ftsw"
-version = "1.1.0"
+version = "1.2.0"
 
 targetCompatibility = 1.7
 sourceCompatibility = 1.7
@@ -88,6 +88,9 @@ task deobfJar(type: Jar) {
 jar {
     from "LICENSE.txt"
     appendix = project.minecraft.version
+    manifest {
+        attributes 'ModSide': 'SERVER'
+    }
 }
 
 artifacts {

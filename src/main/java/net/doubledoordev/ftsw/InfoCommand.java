@@ -79,16 +79,7 @@ public class InfoCommand extends CommandBase
                     for (String arg : args)
                     {
                         GameProfile profile = MinecraftServer.getServer().func_152358_ax().func_152655_a(arg);
-                        String twitchName = null;
-                        try
-                        {
-                            twitchName = IOUtils.toString(new URL(String.format(ForgeTwitchSubWhitelist.GET_TWITCH_NAME_URL, profile.getId().toString()))).trim();
-                        }
-                        catch (IOException e)
-                        {
-
-                        }
-                        if (Strings.isNullOrEmpty(twitchName)) twitchName = "???";
+                        String twitchName = ForgeTwitchSubWhitelist.lookupUsername(profile.getId());
                         sender.addChatMessage(new ChatComponentText(arg).appendText(" -> ").appendSibling(new ChatComponentText(twitchName).setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GOLD))));
                     }
                 }
