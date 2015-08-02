@@ -126,7 +126,6 @@ public class ForgeTwitchSubWhitelist
     @Mod.EventHandler
     public void init(FMLServerStartingEvent event)
     {
-        if (event.getSide().isServer()) return;
         event.registerServerCommand(new InfoCommand());
     }
 
@@ -154,7 +153,6 @@ public class ForgeTwitchSubWhitelist
                         handler.kickPlayerFromServer(NOT_LINKED);
                         return;
                     }
-                    System.out.println(twitchName);
                     if (!SUB_END_DATE_MAP.containsKey(twitchName) || SUB_END_DATE_MAP.get(twitchName) - System.currentTimeMillis() > 0) // Not yet known or cache expired
                     {
                         try
@@ -198,6 +196,7 @@ public class ForgeTwitchSubWhitelist
             int firstLineEnd = twitchName.indexOf('\n');
             if (firstLineEnd != -1) twitchName = twitchName.substring(0, firstLineEnd);
             twitchName = twitchName.trim();
+            if (twitchName.length() == 0) twitchName = null;
         }
         catch (IOException e)
         {

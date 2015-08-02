@@ -58,7 +58,7 @@ public class InfoCommand extends CommandBase
     @Override
     public String getCommandUsage(ICommandSender sender)
     {
-        return "/ftsw [player]";
+        return "/ftsw [player ...]";
     }
 
     @Override
@@ -79,6 +79,7 @@ public class InfoCommand extends CommandBase
                     for (String arg : args)
                     {
                         GameProfile profile = MinecraftServer.getServer().func_152358_ax().func_152655_a(arg);
+                        if (profile == null) continue;
                         String twitchName = ForgeTwitchSubWhitelist.lookupUsername(profile.getId());
                         sender.addChatMessage(new ChatComponentText(arg).appendText(" -> ").appendSibling(new ChatComponentText(twitchName).setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GOLD))));
                     }
