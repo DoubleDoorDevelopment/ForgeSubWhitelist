@@ -30,18 +30,14 @@
 
 package net.doubledoordev.ftsw;
 
-import com.google.common.base.Strings;
 import com.mojang.authlib.GameProfile;
 import net.minecraft.command.CommandBase;
 import net.minecraft.command.ICommandSender;
 import net.minecraft.server.MinecraftServer;
+import net.minecraft.util.BlockPos;
 import net.minecraft.util.ChatComponentText;
 import net.minecraft.util.ChatStyle;
 import net.minecraft.util.EnumChatFormatting;
-import org.apache.commons.io.IOUtils;
-
-import java.io.IOException;
-import java.net.URL;
 import java.util.List;
 
 /**
@@ -78,7 +74,7 @@ public class InfoCommand extends CommandBase
                 {
                     for (String arg : args)
                     {
-                        GameProfile profile = MinecraftServer.getServer().func_152358_ax().func_152655_a(arg);
+                        GameProfile profile = MinecraftServer.getServer().getPlayerProfileCache().getGameProfileForUsername(arg);
                         if (profile == null) continue;
                         String twitchName = ForgeTwitchSubWhitelist.lookupUsername(profile.getId());
                         sender.addChatMessage(new ChatComponentText(arg).appendText(" -> ").appendSibling(new ChatComponentText(twitchName).setChatStyle(new ChatStyle().setColor(EnumChatFormatting.GOLD))));
@@ -89,8 +85,7 @@ public class InfoCommand extends CommandBase
     }
 
     @Override
-    public List addTabCompletionOptions(ICommandSender p_71516_1_, String[] p_71516_2_)
-    {
-        return getListOfStringsMatchingLastWord(p_71516_2_, MinecraftServer.getServer().getConfigurationManager().getAvailablePlayerDat());
+    public List<String> addTabCompletionOptions(ICommandSender sender, String[] args, BlockPos pos) {
+        return getListOfStringsMatchingLastWord(args, MinecraftServer.getServer().getConfigurationManager().getAvailablePlayerDat());
     }
 }
