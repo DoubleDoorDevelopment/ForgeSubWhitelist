@@ -33,21 +33,19 @@ package net.doubledoordev.ftsw;
 import com.google.common.base.Strings;
 import com.google.gson.Gson;
 import com.google.gson.reflect.TypeToken;
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.event.FMLServerStartingEvent;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.common.network.FMLNetworkEvent;
-import cpw.mods.fml.common.network.NetworkCheckHandler;
-import cpw.mods.fml.relauncher.Side;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import net.minecraftforge.fml.common.network.NetworkCheckHandler;
+import net.minecraftforge.fml.relauncher.Side;
 import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.server.management.ServerConfigurationManager;
-import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.io.IOUtils;
-import org.lwjgl.Sys;
 
 import java.io.File;
 import java.io.IOException;
@@ -71,7 +69,7 @@ public class ForgeTwitchSubWhitelist
     public static final String NOT_LINKED = "You need to link your MC and Twitch accounts! Go to http://www.doubledoordev.net/?p=twitch";
 
     public static final Gson GSON = new Gson();
-    public static final Map<String, Long> SUB_END_DATE_MAP = new HashMap<>();
+    public static final Map<String, Long> SUB_END_DATE_MAP = new HashMap();
 
     private Configuration configuration;
 
@@ -126,7 +124,7 @@ public class ForgeTwitchSubWhitelist
     @Mod.EventHandler
     public void init(FMLServerStartingEvent event)
     {
-        event.registerServerCommand(new InfoCommand());
+        //event.registerServerCommand(new InfoCommand());
     }
 
     @SubscribeEvent
@@ -145,7 +143,7 @@ public class ForgeTwitchSubWhitelist
                 {
                     NetHandlerPlayServer handler = ((NetHandlerPlayServer) event.handler);
 
-                    if (scm.func_152607_e(handler.playerEntity.getGameProfile())) return; // op or whitelisted
+                    if (scm.canJoin(handler.playerEntity.getGameProfile())) return; // op or whitelisted
 
                     String twitchName = lookupUsername(handler.playerEntity.getGameProfile().getId());
                     if (Strings.isNullOrEmpty(twitchName))
