@@ -1,7 +1,7 @@
 ForgeSubWhitelist
 =================
 
-Forge Whitelist mod for Twitch and GameWisp
+Forge Whitelist mod for Twitch, Beam and GameWisp
 
 For players
 -----------

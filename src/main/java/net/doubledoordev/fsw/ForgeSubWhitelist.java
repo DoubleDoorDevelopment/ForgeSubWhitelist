@@ -66,6 +66,7 @@ public class ForgeSubWhitelist
     private static String[] kickMsg = new String[]{"You must be subscribed to join this server.", "Make sure your accounts are linked: http://doubledoordev.net/?p=linking"};
     private static String apiToken;
     private static boolean twitch = true;
+    private static boolean beam = true;
     private static int gamewisp = -1;
     private static Logger logger;
     private static String url;
@@ -112,8 +113,9 @@ public class ForgeSubWhitelist
 
         apiToken = configuration.getString("apiToken", MODID, "", "Get it from http://doubledoordev.net/?p=linking");
         kickMsg = configuration.getStringList("kickMsg", MODID, kickMsg, "Please put a nice message here. Newline allowed. Its recommended to link to a document explain the auth process and/or your channel. Remember that you cannot click links, so keep it short.");
-        twitch = configuration.getBoolean("twitch", MODID, twitch, "If true anyone who is subbed on twitch will be able to join this server. Set to false to use GameWisp ranks.");
-        gamewisp = configuration.getInt("gamewisp", MODID, gamewisp, -1, Integer.MAX_VALUE, "If -1, use twitch. Put in the tier at which subs get access to this server. (Includes all above). Your first tier is 1, second is 2, ...");
+        twitch = configuration.getBoolean("twitch", MODID, twitch, "If true anyone who is subbed on twitch will be able to join this server.");
+        beam = configuration.getBoolean("beam", MODID, beam, "If true anyone who is subbed on beam will be able to join this server.");
+        gamewisp = configuration.getInt("gamewisp", MODID, gamewisp, -1, Integer.MAX_VALUE, "If -1, use ignore. Put in the tier at which subs get access to this server. (Includes all above). Your first tier is 1, second is 2, ...");
 
         if (configuration.hasChanged()) configuration.save();
 
@@ -131,6 +133,7 @@ public class ForgeSubWhitelist
         }
         url = URL + "&uuid=$UUID$";
         if (twitch) url += "&twitch=$TWITCH$";
+        if (beam) url += "&beam=$BEAM$";
         if (gamewisp != -1) url += "&twitch=$TWITCH$";
     }
 
@@ -166,6 +169,7 @@ public class ForgeSubWhitelist
                 String out = IOUtils.toString(new URL(url
                         .replace("$TOKEN$", apiToken)
                         .replace("$TWITCH$", String.valueOf(twitch))
+                        .replace("$BEAM$", String.valueOf(beam))
                         .replace("$UUID$", uuid.toString())
                         .replace("$GAMEWISP$", String.valueOf(gamewisp))));
                 if (Boolean.parseBoolean(out))

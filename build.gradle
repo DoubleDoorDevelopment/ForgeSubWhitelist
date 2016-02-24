@@ -28,14 +28,14 @@ apply plugin: "maven"
 apply plugin: "idea-utils"
 
 group = "net.doubledoordev.fsw"
-version = "2.0.0"
+version = "2.1.0"
 
 targetCompatibility = 1.7
 sourceCompatibility = 1.7
 
 archivesBaseName = 'ForgeSubWhitelist'
 def githuborg = 'DoubleDoorDevelopment'
-def description = 'Automatic sub login checker for Twitch, GameWisp, ...'
+def description = 'Automatic sub login checker for Twitch, Beam & GameWisp'
 minecraft {
     version = "1.7.10-10.13.4.1558-1.7.10"
     runDir = "jars"
