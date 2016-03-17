@@ -28,14 +28,19 @@ import com.mojang.authlib.GameProfile;
 import cpw.mods.fml.common.FMLCommonHandler;
 import cpw.mods.fml.common.Mod;
 import cpw.mods.fml.common.event.FMLPreInitializationEvent;
+import cpw.mods.fml.common.event.FMLServerStartingEvent;
 import cpw.mods.fml.common.eventhandler.SubscribeEvent;
 import cpw.mods.fml.common.gameevent.TickEvent;
 import cpw.mods.fml.common.network.FMLNetworkEvent;
 import cpw.mods.fml.common.network.NetworkCheckHandler;
 import cpw.mods.fml.relauncher.Side;
+import net.minecraft.command.CommandBase;
+import net.minecraft.command.ICommandSender;
+import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.NetHandlerPlayServer;
 import net.minecraft.server.management.ServerConfigurationManager;
+import net.minecraft.util.ChatComponentText;
 import net.minecraftforge.common.config.Configuration;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
@@ -63,13 +68,15 @@ public class ForgeSubWhitelist
 
     private static Configuration configuration;
 
-    private static String[] kickMsg = new String[]{"You must be subscribed to join this server.", "Make sure your accounts are linked: http://doubledoordev.net/?p=linking"};
+    private static String[] kickMsg = new String[] {"You must be subscribed to join this server.", "Make sure your accounts are linked: http://doubledoordev.net/?p=linking"};
     private static String apiToken;
     private static boolean twitch = true;
     private static boolean beam = true;
     private static int gamewisp = -1;
     private static Logger logger;
     private static String url;
+    private static boolean closed = false;
+    private static String closed_msg = "Sorry, the server isn't open yet.";
 
     @Mod.EventHandler
     public void init(FMLPreInitializationEvent event) throws IOException
@@ -94,6 +101,37 @@ public class ForgeSubWhitelist
         new Thread(new ForgeSubWhitelist.Checker(((NetHandlerPlayServer) event.handler).playerEntity.getGameProfile())).start();
     }
 
+    @Mod.EventHandler
+    public void serverStart(FMLServerStartingEvent event) throws IOException
+    {
+        event.registerServerCommand(new CommandBase()
+        {
+            @Override
+            public String getCommandName()
+            {
+                return "closed";
+            }
+
+            @Override
+            public String getCommandUsage(ICommandSender sender)
+            {
+                return "/closed [true|false]";
+            }
+
+            @Override
+            public void processCommand(ICommandSender sender, String[] args)
+            {
+                if (args.length == 1)
+                {
+                    closed = parseBoolean(sender, args[0]);
+                    configuration.get(MODID, "closed", closed).set(closed);
+                    if (configuration.hasChanged()) configuration.save();
+                }
+                sender.addChatMessage(new ChatComponentText("The server is currently " + (closed ? "closed" : "open" + ".")));
+            }
+        });
+    }
+
     @SubscribeEvent
     public void tickEvent(TickEvent.ServerTickEvent event)
     {
@@ -101,7 +139,7 @@ public class ForgeSubWhitelist
         while (kick != null)
         {
             EntityPlayerMP player = FMLCommonHandler.instance().getMinecraftServerInstance().getConfigurationManager().func_152612_a(kick);
-            player.playerNetServerHandler.kickPlayerFromServer(Joiner.on('\n').join(kickMsg));
+            player.playerNetServerHandler.kickPlayerFromServer(closed ? closed_msg : Joiner.on('\n').join(kickMsg));
 
             kick = TO_KICK.poll();
         }
@@ -116,6 +154,9 @@ public class ForgeSubWhitelist
         twitch = configuration.getBoolean("twitch", MODID, twitch, "If true anyone who is subbed on twitch will be able to join this server.");
         beam = configuration.getBoolean("beam", MODID, beam, "If true anyone who is subbed on beam will be able to join this server.");
         gamewisp = configuration.getInt("gamewisp", MODID, gamewisp, -1, Integer.MAX_VALUE, "If -1, use ignore. Put in the tier at which subs get access to this server. (Includes all above). Your first tier is 1, second is 2, ...");
+
+        closed = configuration.getBoolean("closed", MODID, closed, "Used for not-yet-public state. Enable ingame with /closed <true|false>.");
+        closed_msg = configuration.getString("closed_msg", MODID, closed_msg, "The message when the server is closed.");
 
         if (configuration.hasChanged()) configuration.save();
 
@@ -159,6 +200,9 @@ public class ForgeSubWhitelist
                 logger.info("Letting {} join, manual or op.", uuid);
                 return;
             }
+
+            if (closed) TO_KICK.add(gameProfile.getName());
+
             if (CACHE_MAP.containsKey(uuid) && CACHE_MAP.get(uuid) - System.currentTimeMillis() < 0)
             {
                 CACHE_MAP.remove(uuid);
