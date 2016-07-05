@@ -1,7 +1,11 @@
 ForgeSubWhitelist
 =================
 
-Forge Whitelist mod for Twitch, Beam and GameWisp
+Forge Whitelist mod for Twitch, GameWisp, Beam, Patreon, ...
+
+Currently stable: Twitch <br/>
+Currently in beta: GameWisp & Beam. <br/> 
+If you want to use beta services, please tell us! <br/>
 
 For players
 -----------

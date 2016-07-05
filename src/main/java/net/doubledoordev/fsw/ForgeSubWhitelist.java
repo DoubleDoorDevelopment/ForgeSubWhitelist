@@ -25,23 +25,25 @@ package net.doubledoordev.fsw;
 
 import com.google.common.base.Joiner;
 import com.mojang.authlib.GameProfile;
-import cpw.mods.fml.common.FMLCommonHandler;
-import cpw.mods.fml.common.Mod;
-import cpw.mods.fml.common.event.FMLPreInitializationEvent;
-import cpw.mods.fml.common.event.FMLServerStartingEvent;
-import cpw.mods.fml.common.eventhandler.SubscribeEvent;
-import cpw.mods.fml.common.gameevent.TickEvent;
-import cpw.mods.fml.common.network.FMLNetworkEvent;
-import cpw.mods.fml.common.network.NetworkCheckHandler;
-import cpw.mods.fml.relauncher.Side;
 import net.minecraft.command.CommandBase;
+import net.minecraft.command.CommandException;
 import net.minecraft.command.ICommandSender;
-import net.minecraft.command.WrongUsageException;
 import net.minecraft.entity.player.EntityPlayerMP;
 import net.minecraft.network.NetHandlerPlayServer;
-import net.minecraft.server.management.ServerConfigurationManager;
-import net.minecraft.util.ChatComponentText;
+import net.minecraft.server.MinecraftServer;
+import net.minecraft.server.management.PlayerList;
+import net.minecraft.util.text.TextComponentString;
+import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.fml.common.FMLCommonHandler;
+import net.minecraftforge.fml.common.Mod;
+import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
+import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
+import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
+import net.minecraftforge.fml.common.gameevent.TickEvent;
+import net.minecraftforge.fml.common.network.FMLNetworkEvent;
+import net.minecraftforge.fml.common.network.NetworkCheckHandler;
+import net.minecraftforge.fml.relauncher.Side;
 import org.apache.commons.io.IOUtils;
 import org.apache.logging.log4j.Logger;
 
@@ -50,7 +52,6 @@ import java.net.URL;
 import java.util.Map;
 import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentHashMap;
 import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
@@ -59,16 +60,17 @@ import java.util.concurrent.ConcurrentLinkedQueue;
 @Mod(modid = ForgeSubWhitelist.MODID)
 public class ForgeSubWhitelist
 {
+    @SuppressWarnings("WeakerAccess")
     public static final String MODID = "ForgeSubWhitelist";
 
-    public static final String URL = "http://doubledoordev.net/isAuthorized.php?token=$TOKEN$";
+    private static final String BASE_URL = "http://doubledoordev.net/isAuthorized.php?token=$TOKEN$";
 
+    private static final CachedSet<UUID> CACHE = new CachedSet<>(86400000); // 24 hours
     private static final Queue<String> TO_KICK = new ConcurrentLinkedQueue<>();
-    private static final Map<UUID, Long> CACHE_MAP = new ConcurrentHashMap<>();
 
     private static Configuration configuration;
 
-    private static String[] kickMsg = new String[] {"You must be subscribed to join this server.", "Make sure your accounts are linked: http://doubledoordev.net/?p=linking"};
+    private static String[] kickMsg = new String[]{"You must be subscribed to join this server.", "Make sure your accounts are linked: http://doubledoordev.net/?p=linking"};
     private static String apiToken;
     private static boolean twitch = true;
     private static boolean beam = true;
@@ -85,7 +87,7 @@ public class ForgeSubWhitelist
         configuration = new Configuration(event.getSuggestedConfigurationFile());
         syncConfig();
 
-        FMLCommonHandler.instance().bus().register(this);
+        MinecraftForge.EVENT_BUS.register(this);
     }
 
     @NetworkCheckHandler
@@ -97,8 +99,8 @@ public class ForgeSubWhitelist
     @SubscribeEvent
     public void joinEvent(final FMLNetworkEvent.ServerConnectionFromClientEvent event)
     {
-        if (event.isLocal) return;
-        new Thread(new ForgeSubWhitelist.Checker(((NetHandlerPlayServer) event.handler).playerEntity.getGameProfile())).start();
+        if (event.isLocal()) return;
+        new Thread(new ForgeSubWhitelist.Checker(((NetHandlerPlayServer) event.getHandler()).playerEntity.getGameProfile())).start();
     }
 
     @Mod.EventHandler
@@ -119,15 +121,15 @@ public class ForgeSubWhitelist
             }
 
             @Override
-            public void processCommand(ICommandSender sender, String[] args)
+            public void execute(MinecraftServer server, ICommandSender sender, String[] args) throws CommandException
             {
                 if (args.length == 1)
                 {
-                    closed = parseBoolean(sender, args[0]);
+                    closed = parseBoolean(args[0]);
                     configuration.get(MODID, "closed", closed).set(closed);
                     if (configuration.hasChanged()) configuration.save();
                 }
-                sender.addChatMessage(new ChatComponentText("The server is currently " + (closed ? "closed" : "open" + ".")));
+                sender.addChatMessage(new TextComponentString("The server is currently " + (closed ? "closed" : "open" + ".")));
             }
         });
     }
@@ -135,13 +137,11 @@ public class ForgeSubWhitelist
     @SubscribeEvent
     public void tickEvent(TickEvent.ServerTickEvent event)
     {
-        String kick = TO_KICK.poll();
-        while (kick != null)
+        while (!TO_KICK.isEmpty())
         {
-            EntityPlayerMP player = FMLCommonHandler.instance().getMinecraftServerInstance().getConfigurationManager().func_152612_a(kick);
-            player.playerNetServerHandler.kickPlayerFromServer(closed ? closed_msg : Joiner.on('\n').join(kickMsg));
-
-            kick = TO_KICK.poll();
+            EntityPlayerMP player = FMLCommonHandler.instance().getMinecraftServerInstance().getPlayerList().getPlayerByUsername(TO_KICK.poll());
+            if (player == null) continue;
+            player.connection.kickPlayerFromServer(closed ? closed_msg : Joiner.on('\n').join(kickMsg));
         }
     }
 
@@ -164,25 +164,25 @@ public class ForgeSubWhitelist
         try
         {
             //noinspection ResultOfMethodCallIgnored
-            IOUtils.toString(new URL(URL.replace("$TOKEN$", apiToken)));
+            IOUtils.toString(new URL(BASE_URL.replace("$TOKEN$", apiToken)));
         }
         catch (IOException ex)
         {
-            RuntimeException e = new RuntimeException("\n\nYour API token is wrong. Update them in the " + MODID + " config.\n\nDO NOT POST THIS LOG ANYWHERE ONLINE WITHOUT REMOVING THE URL IN THE LINE BELOW!\n", ex);
+            RuntimeException e = new RuntimeException("\n\nYour API token is wrong. Update them in the " + MODID + " config.\n\nDO NOT POST THIS LOG ANYWHERE ONLINE WITHOUT REMOVING THE BASE_URL IN THE LINE BELOW!\n", ex);
             e.setStackTrace(new StackTraceElement[0]);
             throw e;
         }
-        url = URL + "&uuid=$UUID$";
+        url = BASE_URL + "&uuid=$UUID$";
         if (twitch) url += "&twitch=$TWITCH$";
         if (beam) url += "&beam=$BEAM$";
         if (gamewisp != -1) url += "&twitch=$TWITCH$";
     }
 
-    public static class Checker implements Runnable
+    private static class Checker implements Runnable
     {
         private final GameProfile gameProfile;
 
-        public Checker(GameProfile gameProfile)
+        private Checker(GameProfile gameProfile)
         {
             this.gameProfile = gameProfile;
         }
@@ -191,23 +191,20 @@ public class ForgeSubWhitelist
         public void run()
         {
             UUID uuid = gameProfile.getId();
-            ServerConfigurationManager scm = FMLCommonHandler.instance().getMinecraftServerInstance().getConfigurationManager();
-            scm.setWhiteListEnabled(true);
-            boolean b = scm.func_152607_e(gameProfile);
-            scm.setWhiteListEnabled(false);
-            if (b) // op or whitelisted manually
+            PlayerList scm = FMLCommonHandler.instance().getMinecraftServerInstance().getPlayerList();
+            if (scm.canSendCommands(gameProfile) || scm.getWhitelistedPlayers().isWhitelisted(gameProfile))
             {
                 logger.info("Letting {} join, manual or op.", uuid);
                 return;
             }
-
-            if (closed) TO_KICK.add(gameProfile.getName());
-
-            if (CACHE_MAP.containsKey(uuid) && CACHE_MAP.get(uuid) - System.currentTimeMillis() < 0)
+            if (closed)
             {
-                CACHE_MAP.remove(uuid);
-                return;
+                sleep();
+                TO_KICK.add(gameProfile.getName());
             }
+
+            if (CACHE.contains(uuid)) return;
+
             try
             {
                 String out = IOUtils.toString(new URL(url
@@ -219,7 +216,7 @@ public class ForgeSubWhitelist
                 if (Boolean.parseBoolean(out))
                 {
                     logger.info("Letting {} join, authorized online.", uuid);
-                    CACHE_MAP.put(uuid, System.currentTimeMillis() + (1000 * 60 * 60 * 24)); // 24h cache period
+                    CACHE.add(uuid);
                     return;
                 }
             }
@@ -228,7 +225,20 @@ public class ForgeSubWhitelist
                 // 500 or something, we don't care. You ain't getting on.
             }
             logger.info("Adding {} to kick list.", uuid);
+            sleep();
             TO_KICK.add(gameProfile.getName());
+        }
+
+        private void sleep()
+        {
+            try
+            {
+                Thread.sleep(1000);
+            }
+            catch (InterruptedException ignored)
+            {
+
+            }
         }
     }
 }

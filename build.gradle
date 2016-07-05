@@ -1,6 +1,6 @@
 buildscript {
     repositories {
-        mavenCentral()
+        jcenter()
         maven {
             name = "forge"
             url = "http://files.minecraftforge.net/maven"
@@ -11,7 +11,7 @@ buildscript {
         }
     }
     dependencies {
-        classpath 'net.minecraftforge.gradle:ForgeGradle:1.2-SNAPSHOT'
+        classpath 'net.minecraftforge.gradle:ForgeGradle:2.2-SNAPSHOT'
         classpath group: 'com.github.rodionmoiseev.gradle.plugins', name: 'idea-utils', version: '0.2'
     }
 }
@@ -23,9 +23,9 @@ configurations {
     deployJars
 }
 
-apply plugin: "forge"
-apply plugin: "maven"
+apply plugin: "net.minecraftforge.gradle.forge"
 apply plugin: "idea-utils"
+apply plugin: "maven"
 
 group = "net.doubledoordev.fsw"
 version = "2.1.0"
@@ -35,56 +35,80 @@ sourceCompatibility = 1.7
 
 archivesBaseName = 'ForgeSubWhitelist'
 def githuborg = 'DoubleDoorDevelopment'
-def description = 'Automatic sub login checker for Twitch, Beam & GameWisp'
+def description = 'Automatic sub login checker for Twitch, GameWisp, Beam, Patreon, ...'
 minecraft {
-    version = "1.7.10-10.13.4.1558-1.7.10"
+    version = "1.9.4-12.17.0.1976"
     runDir = "jars"
+    mappings = "stable_26"
 }
 
 if (System.getenv().BUILD_NUMBER != null) version += "." + System.getenv().BUILD_NUMBER
-def builder = new groovy.json.JsonBuilder()
-builder (version: version, mcversion: project.minecraft.version, apiversion: project.minecraft.apiVersion)
-new File("versions.json").write(builder.toPrettyString())
 
+//noinspection GroovyAssignabilityCheck
 processResources {
     from(sourceSets.main.resources.srcDirs) {
-        include '**/*.info'
-        expand 'version':project.version, 'mcversion':project.minecraft.version, 'modid':project.archivesBaseName, 'githuborg':githuborg, 'description':description
+        include 'mcmod.info'
+        expand 'version':project.version, 'mcversion':project.minecraft.version, 'modid':project.archivesBaseName, 'githuborg':githuborg, 'description':description, 'group':project.group, 'artifactId':project.archivesBaseName
     }
 
-    from(sourceSets.main.resources.srcDirs) {
-        exclude '**/*.info'
+    doLast {
+        def updateFile = new File(project.archivesBaseName + '.json')
+        def json;
+        if (updateFile.exists()) {
+            json = new JsonSlurper().parseText(updateFile.getText())
+        }
+        else {
+            def builder = new JsonBuilder()
+            json = builder(
+                    homepage: "http://doubledoordev.net/",
+                    promos: new HashMap<>()
+            )
+        }
+        def outStream = new ByteArrayOutputStream()
+        def result = exec {
+            executable = 'git'
+            args = [ 'log', '-n', '1', "--format='%B'"]
+            standardOutput = outStream
+        }
+        def fullLog = outStream.toString().replaceAll("^\\s*'\\s*|\\s*'\\s*\$", "").replaceAll("[\\r\\n]+", "\n")
+
+        json['promos'][project.minecraft.version + '-latest'] = project.version
+        json['promos'][project.minecraft.version + '-recomended'] = project.version
+        if (!json.containsKey(project.minecraft.version)) json.put(project.minecraft.version, new HashMap<>())
+        def version = json[project.minecraft.version]
+        version.put(project.version, fullLog)
+        updateFile.write JsonOutput.prettyPrint(JsonOutput.toJson(json))
     }
 }
 
-task sourcesJar(type: Jar) {
-    from "LICENSE.txt"
-    from sourceSets.main.allSource
-    classifier = 'src'
-    appendix = project.minecraft.version
-}
-
-task deobfJar(type: Jar) {
-    from "LICENSE.txt"
+task deobfJar(type: Jar, dependsOn: 'jar') {
     from sourceSets.main.output
-    from (sourceSets.main.allSource.srcDirs) {
-        include '**/*.java'
-    }
-	classifier = 'dev'
-    appendix = project.minecraft.version
-}
-
-jar {
     from "LICENSE.txt"
+    classifier "dev"
     appendix = project.minecraft.version
     manifest {
         attributes 'ModSide': 'SERVER'
     }
 }
-
+sourceJar {
+    from "LICENSE.txt"
+    exclude("com/**")
+    classifier "src"
+    appendix = project.minecraft.version
+    manifest {
+        attributes 'ModSide': 'SERVER'
+    }
+}
+//noinspection GroovyAssignabilityCheck
+jar {
+    from "LICENSE.txt"
+    exclude("com/**")
+    appendix = project.minecraft.version
+    manifest {
+        attributes 'ModSide': 'SERVER'
+    }
+}
 artifacts {
-	archives jar
-    archives sourcesJar
     archives deobfJar
 }
 
