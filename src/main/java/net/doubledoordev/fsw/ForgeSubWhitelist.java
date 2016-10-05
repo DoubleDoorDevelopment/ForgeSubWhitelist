@@ -145,7 +145,7 @@ public class ForgeSubWhitelist
         }
     }
 
-    public void syncConfig()
+    private void syncConfig()
     {
         configuration.addCustomCategoryComment(MODID, "This information is required for server side operation.");
 
@@ -173,9 +173,9 @@ public class ForgeSubWhitelist
             throw e;
         }
         url = BASE_URL + "&uuid=$UUID$";
-        if (twitch) url += "&twitch=$TWITCH$";
-        if (beam) url += "&beam=$BEAM$";
-        if (gamewisp != -1) url += "&twitch=$TWITCH$";
+        if (twitch) url += "&twitch=true";
+        if (beam) url += "&beam=true";
+        if (gamewisp != -1) url += "&gamewisp=" + gamewisp;
     }
 
     private static class Checker implements Runnable
@@ -207,12 +207,7 @@ public class ForgeSubWhitelist
 
             try
             {
-                String out = IOUtils.toString(new URL(url
-                        .replace("$TOKEN$", apiToken)
-                        .replace("$TWITCH$", String.valueOf(twitch))
-                        .replace("$BEAM$", String.valueOf(beam))
-                        .replace("$UUID$", uuid.toString())
-                        .replace("$GAMEWISP$", String.valueOf(gamewisp))));
+                String out = IOUtils.toString(new URL(url.replace("$TOKEN$", apiToken).replace("$UUID$", uuid.toString())));
                 if (Boolean.parseBoolean(out))
                 {
                     logger.info("Letting {} join, authorized online.", uuid);
