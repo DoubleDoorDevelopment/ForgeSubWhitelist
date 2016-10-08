@@ -35,6 +35,7 @@ import net.minecraft.server.management.PlayerList;
 import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
+import net.minecraftforge.common.config.Property;
 import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
@@ -71,14 +72,10 @@ public class ForgeSubWhitelist
     private static Configuration configuration;
 
     private static String[] kickMsg = new String[]{"You must be subscribed to join this server.", "Make sure your accounts are linked: http://doubledoordev.net/?p=linking"};
-    private static String apiToken;
-    private static boolean twitch = true;
-    private static boolean beam = true;
-    private static int gamewisp = -1;
     private static Logger logger;
-    private static String url;
     private static boolean closed = false;
     private static String closed_msg = "Sorry, the server isn't open yet.";
+    private static Streamer[] streamers;
 
     @Mod.EventHandler
     public void init(FMLPreInitializationEvent event) throws IOException
@@ -145,16 +142,87 @@ public class ForgeSubWhitelist
         }
     }
 
+    public static class Streamer
+    {
+        public final String token;
+        public final String redactedToken;
+        public final boolean twitch;
+        public final boolean beam;
+        public final int gamewisp;
+        public final String baseUrl;
+        public final String fullUrl;
+
+        public Streamer(String token, boolean twitch, boolean beam, int gamewisp)
+        {
+            this.token = token;
+            this.twitch = twitch;
+            this.beam = beam;
+            this.gamewisp = gamewisp;
+            this.baseUrl = BASE_URL.replace("$TOKEN$", token);
+            StringBuilder sb = new StringBuilder(baseUrl);
+            if (twitch) sb.append("&twitch=true");
+            if (beam) sb.append("&beam=true");
+            if (gamewisp != -1) sb.append("&gamewisp=").append(gamewisp);
+            sb.append("&uuid=");
+            this.fullUrl = sb.toString();
+            sb = new StringBuilder(token);
+            for (int i = token.length() / 2; i < token.length(); i++) sb.setCharAt(i, '*');
+            redactedToken = sb.toString();
+        }
+
+        @Override
+        public String toString()
+        {
+            return token +
+                    ' ' + twitch +
+                    ' ' + beam +
+                    ' ' + gamewisp;
+        }
+    }
+
     private void syncConfig()
     {
+        String[] old = null;
+        if (configuration.hasKey(MODID, "apiToken"))
+        {
+            logger.info("Converting old config to new format.");
+            old = new String[]{ new Streamer(
+                    configuration.get(MODID, "apiToken", "").getString(),
+                    configuration.get(MODID, "twitch", false).getBoolean(),
+                    configuration.get(MODID, "beam", false).getBoolean(),
+                    configuration.get(MODID, "gamewisp", -1).getInt()
+            ).toString()};
+            configuration.removeCategory(configuration.getCategory(MODID));
+        }
         configuration.addCustomCategoryComment(MODID, "This information is required for server side operation.");
 
-        apiToken = configuration.getString("apiToken", MODID, "", "Get it from http://doubledoordev.net/?p=linking");
-        kickMsg = configuration.getStringList("kickMsg", MODID, kickMsg, "Please put a nice message here. Newline allowed. Its recommended to link to a document explain the auth process and/or your channel. Remember that you cannot click links, so keep it short.");
-        twitch = configuration.getBoolean("twitch", MODID, twitch, "If true anyone who is subbed on twitch will be able to join this server.");
-        beam = configuration.getBoolean("beam", MODID, beam, "If true anyone who is subbed on beam will be able to join this server.");
-        gamewisp = configuration.getInt("gamewisp", MODID, gamewisp, -1, Integer.MAX_VALUE, "If -1, use ignore. Put in the tier at which subs get access to this server. (Includes all above). Your first tier is 1, second is 2, ...");
+        Property p = configuration.get(MODID, "tokens", new String[0],
+            "This new format allows you to have a server run by multiple people. Being subscribed to one of them is enough to get on.\n" +
+            "Syntax: (remove quotes, 1 per line)\n" +
+            "    '<apitoken> <twitch> <beam> <gamewisp>'\n" +
+            "Services:\n" +
+            "    <apitoken> is token you get from http://doubledoordev.net/?p=linking\n" +
+            "    <twitch> is true or false. True means let subs from twitch on.\n" +
+            "    <beam> is true or false. True means let subs from beam on.\n" +
+            "    <gamewisp> is a number. -1 means ignore gamewisp subs. Any other number is used as the mimimum gamewisp tear for this server.\n" +
+            "Examples:\n" +
+            "    'TOKEN true false 1'   to allow twitch and tear 1 and above on gamewisp, but ignore beam.\n" +
+            "    'TOKEN true false -1'  to only allow twitch.");
+        if (old != null) p.set(old);
+        String[] lines = p.getStringList();
+        streamers = new Streamer[lines.length];
+        for (int i = 0; i < lines.length; i++)
+        {
+            String[] split = lines[i].split("\\s+");
+            String token = split[0];
+            if (split.length > 4) throw new RuntimeException("Too many parts in the config string: " + lines[i]);
+            boolean twitch = split.length > 1 && Boolean.parseBoolean(split[1]);
+            boolean beam = split.length > 2 && Boolean.parseBoolean(split[2]);
+            int gamewisp = split.length > 3 ? Integer.parseInt(split[3]) : -1;
+            streamers[i] = new Streamer(token, twitch, beam, gamewisp);
+        }
 
+        kickMsg = configuration.getStringList("kickMsg", MODID, kickMsg, "Please put a nice message here. Newline allowed. Its recommended to link to a document explain the auth process and/or your channel. Remember that you cannot click links, so keep it short.");
         closed = configuration.getBoolean("closed", MODID, closed, "Used for not-yet-public state. Enable ingame with /closed <true|false>.");
         closed_msg = configuration.getString("closed_msg", MODID, closed_msg, "The message when the server is closed.");
 
@@ -163,8 +231,11 @@ public class ForgeSubWhitelist
         logger.info("Trying out the API token. This could take a couple of seconds.");
         try
         {
-            //noinspection ResultOfMethodCallIgnored
-            IOUtils.toString(new URL(BASE_URL.replace("$TOKEN$", apiToken)));
+            for (Streamer s : streamers)
+            {
+                //noinspection ResultOfMethodCallIgnored
+                IOUtils.toString(new URL(s.baseUrl));
+            }
         }
         catch (IOException ex)
         {
@@ -172,10 +243,10 @@ public class ForgeSubWhitelist
             e.setStackTrace(new StackTraceElement[0]);
             throw e;
         }
-        url = BASE_URL + "&uuid=$UUID$";
-        if (twitch) url += "&twitch=true";
-        if (beam) url += "&beam=true";
-        if (gamewisp != -1) url += "&gamewisp=" + gamewisp;
+
+        logger.info("Configuration:");
+        for (Streamer s : streamers) logger.info("Token (redacted): {} Twitch: {} Beam: {} Gamewisp: {}", s.redactedToken, s.twitch, s.beam, s.gamewisp);
+        if (streamers.length == 0) logger.warn("YOU DON NOT HAVE ANY TOKENES CONFIGURED. YOU WILL NOT BE ABLE TO LOG ON WITHOUT WHITELISTING!");
     }
 
     private static class Checker implements Runnable
@@ -205,20 +276,22 @@ public class ForgeSubWhitelist
 
             if (CACHE.contains(uuid)) return;
 
-            try
+            for (Streamer s : streamers)
             {
-                String out = IOUtils.toString(new URL(url.replace("$TOKEN$", apiToken).replace("$UUID$", uuid.toString())));
-                if (Boolean.parseBoolean(out))
+                try
                 {
-                    logger.info("Letting {} join, authorized online.", uuid);
-                    CACHE.add(uuid);
-                    return;
+                    if (Boolean.parseBoolean(IOUtils.toString(new URL(s.fullUrl + uuid.toString()))))
+                    {
+                        logger.info("Letting {} join, authorized by {} (token redacted)", uuid, s.redactedToken);
+                        CACHE.add(uuid);
+                        return;
+                    }
+                }
+                catch (IOException ignored)
+                {
                 }
             }
-            catch (IOException ignored)
-            {
-                // 500 or something, we don't care. You ain't getting on.
-            }
+
             logger.info("Adding {} to kick list.", uuid);
             sleep();
             TO_KICK.add(gameProfile.getName());
