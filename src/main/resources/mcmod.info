@@ -1,13 +1,13 @@
 {
   "modListVersion": 2,
   "modList": [{
-    "modid": "${modid}",
-    "name": "${modid}",
-    "description": "${description}",
+    "modid": "forgesubwhitelist",
+    "name": "ForgeSubWhitelist",
+    "description": "Automatic sub login checker for Twitch, GameWisp, Beam, ...",
     "version": "${version}",
     "mcversion": "${mcversion}",
-    "url": "https://github.com/${githuborg}/${modid}",
-    "updateUrl": "",
+    "url": "https://github.com/DoubleDoorDevelopment/ForgeSubWhitelist",
+    "updateUrl": "doubledoordev.net/ForgeSubWhitelist.json",
     "authorList": [ "Dries007", "DoubleDoor team" ],
     "credits": "",
     "logoFile": "",

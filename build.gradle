@@ -28,18 +28,18 @@ apply plugin: "idea-utils"
 apply plugin: "maven"
 
 group = "net.doubledoordev.fsw"
-version = "2.2.0"
+version = "2.2.1"
 
-targetCompatibility = 1.7
-sourceCompatibility = 1.7
+targetCompatibility = 1.8
+sourceCompatibility = 1.8
 
 archivesBaseName = 'ForgeSubWhitelist'
 def githuborg = 'DoubleDoorDevelopment'
 def description = 'Automatic sub login checker for Twitch, GameWisp, Beam, ...'
 minecraft {
-    version = "1.9.4-12.17.0.1976"
+    version = "1.11-13.19.0.2154"
     runDir = "jars"
-    mappings = "stable_26"
+    mappings = "snapshot_20161122"
 }
 
 if (System.getenv().BUILD_NUMBER != null) version += "." + System.getenv().BUILD_NUMBER
@@ -48,7 +48,7 @@ if (System.getenv().BUILD_NUMBER != null) version += "." + System.getenv().BUILD
 processResources {
     from(sourceSets.main.resources.srcDirs) {
         include 'mcmod.info'
-        expand 'version':project.version, 'mcversion':project.minecraft.version, 'modid':project.archivesBaseName, 'githuborg':githuborg, 'description':description, 'group':project.group, 'artifactId':project.archivesBaseName
+        expand 'version':project.version, 'mcversion':project.minecraft.version
     }
 
     doLast {
@@ -117,61 +117,6 @@ idea {
         copyright {
             name = 'New BSD License'
             license = file('LICENSE.txt')
-        }
-    }
-}
-
-uploadArchives {
-    if (project.hasProperty("dddUser") && project.hasProperty("dddPass")) {
-        repositories {
-            mavenDeployer {
-                repository(url: "http://doubledoordev.net:8082/artifactory/mods") {
-                    authentication(userName: dddUser, password: dddPass)
-                }
-                pom {
-                    groupId = project.group
-                    version = project.minecraft.version + "-" + project.version
-                    artifactId = project.archivesBaseName
-                    project {
-                        name project.archivesBaseName
-                        packaging 'jar'
-                        description = description
-                        url 'https://github.com/' + githuborg + '/' + project.archivesBaseName
-
-                        scm {
-                            url 'https://github.com/' + githuborg + '/' + project.archivesBaseName
-                            connection 'scm:git:git://github.com/' + githuborg + '/' + project.archivesBaseName + '.git'
-                            developerConnection 'scm:git:git@github.com:' + githuborg + '/' + project.archivesBaseName + '.git'
-                        }
-
-                        issueManagement {
-                            system 'github'
-                            url 'https://github.com/' + githuborg + '/' + project.archivesBaseName + '/issues'
-                        }
-
-                        licenses  {
-                            license  {
-                                name 'MIT License'
-                                url 'https://raw.github.com/' + githuborg + '/' + project.archivesBaseName + '/master/LICENCE.txt'
-                                distribution 'repo'
-                            }
-                        }
-
-                        developers {
-                            developer {
-                                id 'Dries007'
-                                name 'Dries007'
-                                roles { role 'developer' }
-                            }
-                            developer {
-                                id 'Claycorp'
-                                name 'Claycorp'
-                                roles { role 'developer' }
-                            }
-                        }
-                    }
-                }
-            }
         }
     }
 }

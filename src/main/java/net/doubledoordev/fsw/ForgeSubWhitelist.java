@@ -36,12 +36,10 @@ import net.minecraft.util.text.TextComponentString;
 import net.minecraftforge.common.MinecraftForge;
 import net.minecraftforge.common.config.Configuration;
 import net.minecraftforge.common.config.Property;
-import net.minecraftforge.fml.common.FMLCommonHandler;
 import net.minecraftforge.fml.common.Mod;
 import net.minecraftforge.fml.common.event.FMLPreInitializationEvent;
 import net.minecraftforge.fml.common.event.FMLServerStartingEvent;
 import net.minecraftforge.fml.common.eventhandler.SubscribeEvent;
-import net.minecraftforge.fml.common.gameevent.TickEvent;
 import net.minecraftforge.fml.common.network.FMLNetworkEvent;
 import net.minecraftforge.fml.common.network.NetworkCheckHandler;
 import net.minecraftforge.fml.relauncher.Side;
@@ -51,23 +49,21 @@ import org.apache.logging.log4j.Logger;
 import java.io.IOException;
 import java.net.URL;
 import java.util.Map;
-import java.util.Queue;
 import java.util.UUID;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * @author Dries007
  */
-@Mod(modid = ForgeSubWhitelist.MODID)
+@Mod(modid = ForgeSubWhitelist.MODID, name = ForgeSubWhitelist.MODNAME)
 public class ForgeSubWhitelist
 {
     @SuppressWarnings("WeakerAccess")
-    public static final String MODID = "ForgeSubWhitelist";
+    public static final String MODID = "forgesubwhitelist";
+    public static final String MODNAME = "ForgeSubWhitelist";
 
     private static final String BASE_URL = "http://doubledoordev.net/isAuthorized.php?token=$TOKEN$";
 
     private static final CachedSet<UUID> CACHE = new CachedSet<>(86400000); // 24 hours
-    private static final Queue<String> TO_KICK = new ConcurrentLinkedQueue<>();
 
     private static Configuration configuration;
 
@@ -76,6 +72,9 @@ public class ForgeSubWhitelist
     private static boolean closed = false;
     private static String closed_msg = "Sorry, the server isn't open yet.";
     private static Streamer[] streamers;
+
+    // This mod is SideOnly SERVER, so who cares for multiple server instances...
+    private static MinecraftServer server;
 
     @Mod.EventHandler
     public void init(FMLPreInitializationEvent event) throws IOException
@@ -103,16 +102,17 @@ public class ForgeSubWhitelist
     @Mod.EventHandler
     public void serverStart(FMLServerStartingEvent event) throws IOException
     {
+        server = event.getServer();
         event.registerServerCommand(new CommandBase()
         {
             @Override
-            public String getCommandName()
+            public String getName()
             {
                 return "closed";
             }
 
             @Override
-            public String getCommandUsage(ICommandSender sender)
+            public String getUsage(ICommandSender sender)
             {
                 return "/closed [true|false]";
             }
@@ -126,20 +126,9 @@ public class ForgeSubWhitelist
                     configuration.get(MODID, "closed", closed).set(closed);
                     if (configuration.hasChanged()) configuration.save();
                 }
-                sender.addChatMessage(new TextComponentString("The server is currently " + (closed ? "closed" : "open" + ".")));
+                sender.sendMessage(new TextComponentString("The server is currently " + (closed ? "closed" : "open" + ".")));
             }
         });
-    }
-
-    @SubscribeEvent
-    public void tickEvent(TickEvent.ServerTickEvent event)
-    {
-        while (!TO_KICK.isEmpty())
-        {
-            EntityPlayerMP player = FMLCommonHandler.instance().getMinecraftServerInstance().getPlayerList().getPlayerByUsername(TO_KICK.poll());
-            if (player == null) continue;
-            player.connection.kickPlayerFromServer(closed ? closed_msg : Joiner.on('\n').join(kickMsg));
-        }
     }
 
     public static class Streamer
@@ -262,18 +251,13 @@ public class ForgeSubWhitelist
         public void run()
         {
             UUID uuid = gameProfile.getId();
-            PlayerList scm = FMLCommonHandler.instance().getMinecraftServerInstance().getPlayerList();
+            PlayerList scm = server.getPlayerList();
             if (scm.canSendCommands(gameProfile) || scm.getWhitelistedPlayers().isWhitelisted(gameProfile))
             {
-                logger.info("Letting {} join, manual or op.", uuid);
+                logger.info("Letting {} join, manual or op.", gameProfile.getName());
                 return;
             }
-            if (closed)
-            {
-                sleep();
-                TO_KICK.add(gameProfile.getName());
-            }
-
+            if (closed) kick(scm.getPlayerByUUID(gameProfile.getId()));
             if (CACHE.contains(uuid)) return;
 
             for (Streamer s : streamers)
@@ -282,7 +266,7 @@ public class ForgeSubWhitelist
                 {
                     if (Boolean.parseBoolean(IOUtils.toString(new URL(s.fullUrl + uuid.toString()))))
                     {
-                        logger.info("Letting {} join, authorized by {} (token redacted)", uuid, s.redactedToken);
+                        logger.info("Letting {} join, authorized by {} (token redacted)", gameProfile.getName(), s.redactedToken);
                         CACHE.add(uuid);
                         return;
                     }
@@ -291,22 +275,14 @@ public class ForgeSubWhitelist
                 {
                 }
             }
-
-            logger.info("Adding {} to kick list.", uuid);
-            sleep();
-            TO_KICK.add(gameProfile.getName());
+            kick(scm.getPlayerByUUID(gameProfile.getId()));
         }
 
-        private void sleep()
+        private void kick(final EntityPlayerMP playerMP)
         {
-            try
-            {
-                Thread.sleep(1000);
-            }
-            catch (InterruptedException ignored)
-            {
-
-            }
+            if (playerMP == null) return;
+            logger.info("Kicking {} because {}.", playerMP.getName(), closed ? "Closed" : "Not authenticated");
+            server.addScheduledTask(() -> playerMP.connection.disconnect(closed ? closed_msg : Joiner.on('\n').join(kickMsg)));
         }
     }
 }
