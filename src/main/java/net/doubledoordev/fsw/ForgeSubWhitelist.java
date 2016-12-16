@@ -175,7 +175,7 @@ public class ForgeSubWhitelist
         url = URL + "&uuid=$UUID$";
         if (twitch) url += "&twitch=$TWITCH$";
         if (beam) url += "&beam=$BEAM$";
-        if (gamewisp != -1) url += "&twitch=$TWITCH$";
+        if (gamewisp != -1) url += "&gamewisp=$GAMEWISP$";
     }
 
     public static class Checker implements Runnable
