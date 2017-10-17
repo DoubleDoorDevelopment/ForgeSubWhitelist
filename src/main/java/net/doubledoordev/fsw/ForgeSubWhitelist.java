@@ -48,6 +48,7 @@ import org.apache.logging.log4j.Logger;
 
 import java.io.IOException;
 import java.net.URL;
+import java.nio.charset.Charset;
 import java.util.Map;
 import java.util.UUID;
 
@@ -61,6 +62,7 @@ public class ForgeSubWhitelist
     public static final String MODID = "forgesubwhitelist";
     public static final String MODNAME = "ForgeSubWhitelist";
 
+    private static final Charset UTF8 = Charset.forName("UTF-8");
     private static final String BASE_URL = "http://doubledoordev.net/isAuthorized.php?token=$TOKEN$";
 
     private static final CachedSet<UUID> CACHE = new CachedSet<>(86400000); // 24 hours
@@ -96,7 +98,7 @@ public class ForgeSubWhitelist
     public void joinEvent(final FMLNetworkEvent.ServerConnectionFromClientEvent event)
     {
         if (event.isLocal()) return;
-        new Thread(new ForgeSubWhitelist.Checker(((NetHandlerPlayServer) event.getHandler()).playerEntity.getGameProfile())).start();
+        new Thread(new ForgeSubWhitelist.Checker(((NetHandlerPlayServer) event.getHandler()).player.getGameProfile())).start();
     }
 
     @Mod.EventHandler
@@ -223,7 +225,7 @@ public class ForgeSubWhitelist
             for (Streamer s : streamers)
             {
                 //noinspection ResultOfMethodCallIgnored
-                IOUtils.toString(new URL(s.baseUrl));
+                IOUtils.toString(new URL(s.baseUrl), UTF8);
             }
         }
         catch (IOException ex)
@@ -264,7 +266,7 @@ public class ForgeSubWhitelist
             {
                 try
                 {
-                    if (Boolean.parseBoolean(IOUtils.toString(new URL(s.fullUrl + uuid.toString()))))
+                    if (Boolean.parseBoolean(IOUtils.toString(new URL(s.fullUrl + uuid.toString()), UTF8)))
                     {
                         logger.info("Letting {} join, authorized by {} (token redacted)", gameProfile.getName(), s.redactedToken);
                         CACHE.add(uuid);
@@ -282,7 +284,7 @@ public class ForgeSubWhitelist
         {
             if (playerMP == null) return;
             logger.info("Kicking {} because {}.", playerMP.getName(), closed ? "Closed" : "Not authenticated");
-            server.addScheduledTask(() -> playerMP.connection.disconnect(closed ? closed_msg : Joiner.on('\n').join(kickMsg)));
+            server.addScheduledTask(() -> playerMP.connection.disconnect(new TextComponentString(closed ? closed_msg : Joiner.on('\n').join(kickMsg))));
         }
     }
 }
