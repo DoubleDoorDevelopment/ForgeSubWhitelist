@@ -1,3 +1,9 @@
+# THIS PROJECT HAS BEEN REPLACED BY https://github.com/MCLink-Modding/MCLink
+# DO NOT USE THIS!
+
+<details><summary>Old Info</summary>
+<p>
+  
 ForgeSubWhitelist
 =================
 
@@ -24,3 +30,6 @@ For developers
 --------------
 
 If you want to make a plugin for other server software, please message us!
+
+</p>
+</details>
